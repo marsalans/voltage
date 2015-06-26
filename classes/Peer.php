@@ -473,9 +473,13 @@ class Peer {
 	}
 
 	public function sendData($data) {
+		if (isset($this->error)) {
+			return;
+		}
+
 		$this->sendBuffer .= $data;
 
-		if (!isset($this->socket) || !$this->connected || isset($this->error)) {
+		if (!isset($this->socket) || !$this->connected) {
 			return;
 		}
 
@@ -484,6 +488,11 @@ class Peer {
 
 		while ($len > 0) {
 			$bytesSent = socket_send($this->socket, $this->sendBuffer, $len, 0);
+
+			if ($bytesSent === false) {
+				$this->kill("Socket write error");
+				return;
+			}
 
 			if ($bytesSent <= 0) {
 				break;
