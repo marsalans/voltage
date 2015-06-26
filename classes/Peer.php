@@ -180,7 +180,7 @@ class Peer {
 
 		$error = socket_get_option($this->socket, SOL_SOCKET, SO_ERROR);
 
-		if ($error !== 0) {
+		if ($error !== 0 && $error !== SOCKET_EISCONN) {
 			return false;
 		}
 
