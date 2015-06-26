@@ -7,7 +7,8 @@ class Peer {
 	protected $download;
 	protected $id;
 	protected $status;
-	protected $socket;
+	protected $stream;
+	protected $connected;
 	protected $ip, $port;
 	protected $totalBytesReceived, $totalBytesSent;
 	protected $header;
@@ -16,7 +17,6 @@ class Peer {
 	protected $error;
 	protected $hasSentHandshake;
 	protected $sendBuffer;
-	protected $connected;
 	protected $bitfield;
 	protected $requestCount = 0;
 
@@ -32,9 +32,9 @@ class Peer {
 		$this->status = self::STATUS_CHOKED;
 		$this->totalBytesSent = 0;
 		$this->totalBytesReceived = 0;
-		$this->socket = null;
-		$this->connected = false;
+		$this->stream = null;
 		$this->bitfield = null;
+		$this->connected = false;
 		$this->resetBuffers();
 	}
 
@@ -46,10 +46,10 @@ class Peer {
 	}
 
 	public function disconnect() {
-		if (isset($this->socket)) {
-			$this->download->unregisterPeerSocket($this);
-			socket_close($this->socket);
-			$this->socket = null;
+		if (isset($this->stream)) {
+			$this->download->unregisterPeerStream($this);
+			fclose($this->stream);
+			$this->stream = null;
 		}
 
 		$this->connected = false;
@@ -57,31 +57,39 @@ class Peer {
 	}
 
 	public function connect() {
-		if (isset($this->socket) || $this->connected) {
+		if (isset($this->error)) {
+			return;
+		}
+
+		if (isset($this->stream)) {
 			return;
 		}
 
 		$this->resetBuffers();
+		$this->connected = false;
 		$this->status = self::STATUS_CHOKED;
-		$this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+		$errno = null;
+		$errstr = null;
+		$this->stream = stream_socket_client(
+			"tcp://{$this->ip}:{$this->port}",
+			$errno, $errstr,
+			0,
+			STREAM_CLIENT_ASYNC_CONNECT
+		);
 
-		if (empty($this->socket)) {
-			throw new Exception("Cannot create socket");
+		if (empty($this->stream)) {
+			throw new Exception("Cannot create stream");
 		}
 
-		if (!socket_set_nonblock($this->socket)) {
-			throw new Exception("Cannot set non-blocking socket");
+		if (isset($errno) && $errno !== 0) {
+			throw new Exception("Cannot connect stream: $errstr");
 		}
 
-		$this->download->registerPeerSocket($this);
-
-		if (!socket_connect($this->socket, $this->ip, $this->port)) {
-			$error = socket_last_error();
-
-			if ($error !== 10035 && $error !== SOCKET_EINPROGRESS && $error !== SOCKET_EALREADY) {
-				throw new Exception("Unable to connect to peer");
-			}
+		if (!stream_set_blocking($this->stream, false)) {
+			throw new Exception("Cannot set non-blocking stream");
 		}
+
+		$this->download->registerPeerStream($this);
 	}
 
 	public function hasPiece($pieceIndex) {
@@ -161,31 +169,12 @@ class Peer {
 		return ($this->status & self::STATUS_INTERESTED) !== 0;
 	}
 
-	public function getSocket() {
-		return $this->socket;
+	public function getStream() {
+		return $this->stream;
 	}
 
 	public function isConnected() {
-		return isset($this->socket) && $this->connected;
-	}
-
-	public function isDoneConnecting() {
-		if (!isset($this->socket)) {
-			return false;
-		}
-
-		if ($this->connected) {
-			return true;
-		}
-
-		$error = socket_get_option($this->socket, SOL_SOCKET, SO_ERROR);
-
-		if ($error !== 0 && $error !== SOCKET_EISCONN) {
-			return false;
-		}
-
-		$this->connected = 1;
-		return true;
+		return isset($this->stream);
 	}
 
 	public function kill($reason) {
@@ -195,7 +184,7 @@ class Peer {
 	}
 
 	public function read() {
-		if (!isset($this->socket) || isset($this->error)) {
+		if (!isset($this->stream) || isset($this->error)) {
 			return;
 		}
 
@@ -256,24 +245,26 @@ class Peer {
 	}
 
 	protected function readData($len) {
-		if (!isset($this->socket) || !$this->connected || isset($this->error)) {
+		if (!$this->connected || !isset($this->stream) || isset($this->error)) {
 			return null;
 		}
 
-		$buffer = null;
-		$bytesReceived = socket_recv(
-			$this->socket,
-			$buffer,
-			$len,
-			MSG_DONTWAIT
-		);
+		if ($len < 0) {
+			throw new Exception("Tried to read negative");
+		}
 
-		if ($bytesReceived === false) {
-			$this->kill("Socket read error");
+		if ($len >= (1024 * 256)) {
+			throw new Exception("Tried to read too much");
+		}
+
+		$buffer = fread($this->stream, $len);
+
+		if ($buffer === false) {
+			$this->kill("Stream read error");
 			return null;
 		}
 
-		if ($bytesReceived <= 0) {
+		if (strlen($buffer) <= 0) {
 			return null;
 		}
 
@@ -397,6 +388,16 @@ class Peer {
 	}
 
 	public function drain() {
+		if (!isset($this->stream)) {
+			return;
+		}
+
+		if (feof($this->stream)) {
+			$this->kill("Stream error");
+			return;
+		}
+
+		$this->connected = 1;
 		$this->sendHandshake();
 	}
 
@@ -479,7 +480,7 @@ class Peer {
 
 		$this->sendBuffer .= $data;
 
-		if (!isset($this->socket) || !$this->connected) {
+		if (!isset($this->stream) || !$this->connected) {
 			return;
 		}
 
@@ -487,10 +488,15 @@ class Peer {
 		$data = null;
 
 		while ($len > 0) {
-			$bytesSent = socket_send($this->socket, $this->sendBuffer, $len, 0);
+			if (feof($this->stream)) {
+				$this->kill("Stream ended while writing");
+				return;
+			}
+
+			$bytesSent = fwrite($this->stream, $this->sendBuffer, $len);
 
 			if ($bytesSent === false) {
-				$this->kill("Socket write error");
+				$this->kill("Stream write error");
 				return;
 			}
 

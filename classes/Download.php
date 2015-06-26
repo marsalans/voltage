@@ -12,7 +12,8 @@ class Download extends EventEmitter {
 	protected $dir;
 	protected $pieceCache;
 	protected $peers;
-	protected $sockets;
+	protected $streams;
+	protected $streamLookup;
 	protected $udp;
 	protected $trackers;
 	protected $maxPeers = 20;
@@ -36,10 +37,10 @@ class Download extends EventEmitter {
 		$this->pieceCache = new PieceCache($torrent, $dir);
 		$this->lastFlush = time();
 		$this->peers = array();
-		$this->sockets = array();
+		$this->streams = array();
+		$this->streamLookup = array();
 		$this->trackers = array();
 		$this->udp = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-
 
 		if (empty($this->udp)) {
 			throw new Exception("Cannot create UDP socket");
@@ -167,10 +168,9 @@ class Download extends EventEmitter {
 		);
 
 		if ($bytesRead === false) {
-			socket_close($this->udp);
-			$this->udp = null;
-
-			echo "[DEBUG] UDP read error\n";
+			//socket_close($this->udp);
+			//$this->udp = null;
+			//echo "[DEBUG] UDP read error\n";
 			return;
 		}
 
@@ -191,7 +191,7 @@ class Download extends EventEmitter {
 	}
 
 	public function getConnectedPeerCount() {
-		return count($this->sockets);
+		return count($this->streams);
 	}
 
 	protected function connectToPeers() {
@@ -224,36 +224,34 @@ class Download extends EventEmitter {
 
 		$this->connectToPeers();
 
-		if (empty($this->sockets)) {
+		if (empty($this->streams)) {
 			return;
 		}
 
-		$readSockets = $this->sockets;
-		$writeSockets = $this->sockets;
-		$errorSockets = $this->sockets;
+		$readStreams = $this->streams;
+		$writeStreams = $this->streams;
+		$errorStreams = $this->streams;
 
-		$changed = socket_select($readSockets, $writeSockets, $errorSockets, 50);
+		$changed = stream_select($readStreams, $writeStreams, $errorStreams, 0, 1000 * 50);
 
 		if ($changed <= 0) {
 			return;
 		}
 
-		foreach ($errorSockets as $address => $socket) {
-			$this->disconnectPeer($address, "Socket error");
-			unset($readSockets[$address]);
-			unset($writeSockets[$address]);
+		foreach ($errorStreams as $stream) {
+			$this->disconnectPeer($stream, "Stream error");
 		}
 
 		gc_collect_cycles();
 
-		foreach ($readSockets as $address => $socket) {
-			$this->readPeer($address);
+		foreach ($readStreams as $stream) {
+			$this->readPeer($stream);
 		}
 
 		gc_collect_cycles();
 
-		foreach ($writeSockets as $address => $socket) {
-			$this->drainPeer($address);
+		foreach ($writeStreams as $stream) {
+			$this->drainPeer($stream);
 		}
 
 		gc_collect_cycles();
@@ -271,10 +269,6 @@ class Download extends EventEmitter {
 
 	public function getPeerCount() {
 		return count($this->peers);
-	}
-
-	public function getPeerByAddress($address) {
-		return @$this->peers[$address];
 	}
 
 	public function addPeer($ip, $port) {
@@ -299,20 +293,25 @@ class Download extends EventEmitter {
 		return $peer;
 	}
 
-	public function registerPeerSocket(Peer $peer) {
-		if (!$peer->getSocket()) { return; }
-		$this->sockets[$peer->getAddress()] = $peer->getSocket();
+	public function registerPeerStream(Peer $peer) {
+		$stream = $peer->getStream();
+		if (!$stream) { return; }
+		$this->streams[(int)$stream] = $stream;
+		$this->streamLookup[(int)$stream] = $peer;
 	}
 
-	public function unregisterPeerSocket(Peer $peer) {
-		unset($this->sockets[$peer->getAddress()]);
+	public function unregisterPeerStream(Peer $peer) {
+		$stream = $peer->getStream();
+		if (!$stream) { return; }
+		unset($this->streams[(int)$stream]);
+		unset($this->streamLookup[(int)$stream]);
 	}
 
-	public function disconnectPeer($address, $killReason=null) {
-		$peer = @$this->peers[$address];
+	public function disconnectPeer($stream, $killReason=null) {
+		$peer = @$this->streamLookup[(int)$stream];
 
 		if (!$peer) {
-			unset($this->sockets[$address]);
+			unset($this->streams[(int)$stream]);
 			return;
 		}
 
@@ -324,41 +323,32 @@ class Download extends EventEmitter {
 			$peer->disconnect();
 		}
 
-		unset($this->peers[$address]);
-		unset($this->sockets[$address]);
+		unset($this->peers[$peer->getAddress()]);
+		unset($this->streams[(int)$stream]);
+		unset($this->streamLookup[(int)$stream]);
 	}
 
-	public function readPeer($address) {
-		$peer = @$this->peers[$address];
+	public function readPeer($stream) {
+		$peer = @$this->streamLookup[(int)$stream];
 
 		if (!isset($peer)) {
-			$this->disconnectPeer($address);
-			return;
-		}
-
-		if (!$peer->isDoneConnecting()) {
+			$this->disconnectPeer($stream);
 			return;
 		}
 
 		try {
-			//do {
 			$peer->read();
-			//} while ($more);
 		} catch (Exception $e) {
 			trigger_error($e);
 			$peer->kill("Exception while reading");
 		}
 	}
 
-	public function drainPeer($address) {
-		$peer = @$this->peers[$address];
+	public function drainPeer($stream) {
+		$peer = @$this->streamLookup[$stream];
 
 		if (!isset($peer)) {
-			$this->disconnectPeer($address);
-			return;
-		}
-
-		if (!$peer->isDoneConnecting()) {
+			$this->disconnectPeer($stream);
 			return;
 		}
 

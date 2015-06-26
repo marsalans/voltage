@@ -44,9 +44,6 @@ class TrackerUDP extends Tracker {
 	const ANNOUNCE_RESPONSE_PEER = 'Nip/nport';
 
 	protected function sendUpdate() {
-		// TODO temporary disable UDP
-		return;
-
 		if (isset($this->connectionID)) {
 			return $this->sendAnnounce();
 		} else {
