@@ -34,7 +34,7 @@ class Peer {
 		$this->totalBytesReceived = 0;
 		$this->stream = null;
 		$this->bitfield = null;
-		$this->connected = false;
+		$this->connected = 0;
 		$this->resetBuffers();
 	}
 
@@ -52,7 +52,7 @@ class Peer {
 			$this->stream = null;
 		}
 
-		$this->connected = false;
+		$this->connected = 0;
 		$this->resetBuffers();
 	}
 
@@ -66,7 +66,7 @@ class Peer {
 		}
 
 		$this->resetBuffers();
-		$this->connected = false;
+		$this->connected = 0;
 		$this->status = self::STATUS_CHOKED;
 		$errno = null;
 		$errstr = null;
@@ -174,7 +174,7 @@ class Peer {
 	}
 
 	public function isConnected() {
-		return isset($this->stream);
+		return isset($this->stream) && ($this->connected > 0);
 	}
 
 	public function kill($reason) {
@@ -185,6 +185,12 @@ class Peer {
 
 	public function read() {
 		if (!isset($this->stream) || isset($this->error)) {
+			return;
+		}
+
+		$this->connected |= 2;
+
+		if (!$this->isConnected()) {
 			return;
 		}
 
@@ -245,7 +251,7 @@ class Peer {
 	}
 
 	protected function readData($len) {
-		if (!$this->connected || !isset($this->stream) || isset($this->error)) {
+		if (!$this->isConnected() || isset($this->error)) {
 			return null;
 		}
 
@@ -392,12 +398,13 @@ class Peer {
 			return;
 		}
 
+		$this->connected |= 1;
+
 		if (feof($this->stream)) {
 			$this->kill("Stream error");
 			return;
 		}
 
-		$this->connected = 1;
 		$this->sendHandshake();
 	}
 
@@ -480,7 +487,7 @@ class Peer {
 
 		$this->sendBuffer .= $data;
 
-		if (!isset($this->stream) || !$this->connected) {
+		if (!$this->isConnected()) {
 			return;
 		}
 
