@@ -57,7 +57,7 @@ class Peer {
 	}
 
 	public function connect() {
-		if (isset($this->socket) && $this->connected) {
+		if (isset($this->socket) || $this->connected) {
 			return;
 		}
 

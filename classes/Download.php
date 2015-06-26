@@ -204,7 +204,12 @@ class Download extends EventEmitter {
 				continue;
 			}
 
-			$peer->connect();
+			try {
+				$peer->connect();
+			} catch (Exception $e) {
+				$peer->kill("Unable to connect");
+				return;
+			}
 
 			if ($this->getConnectedPeerCount() >= $this->maxPeers) {
 				return;
