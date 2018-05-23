@@ -421,38 +421,6 @@ class PieceCache {
 
 	/** Calculates how many pieces we should keep in memory */
 	protected static function calculateMaxPieces($pieceSize) {
-		$limit = ini_get('memory_limit');
-		$limit = str_replace(' ', '', $limit);
-		$unit = substr($limit, -1, 1);
-		$limit = substr($limit, 0, -1);
-		$limit = (int)$limit;
-
-		if ($unit === 'g' || $unit === 'G') {
-			$limit *= (1024 * 1024 * 1024);
-		} else if ($unit === 'm' || $unit === 'M') {
-			$limit *= (1024 * 1024);
-		} else if ($unit === 'k' || $unit === 'K') {
-			$limit *= 1024;
-		}
-
-		// Current memory usage is a baseline
-		$limit -= memory_get_usage();
-
-		// Only use 2/3 memory so PHP always has some available
-		$limit = (int)($limit * 0.6667);
-
-		// Calculate piece count with respect to PHP bloat
-		$count = (int)($limit / ($pieceSize * 1.333));
-
-		if ($count <= 0) {
-			throw new Exception("Not enough memory for even a single piece");
-		}
-
-		if ($count < 3) {
-			trigger_error("Memory is really low");
-		}
-
-		echo "[DEBUG] Max pieces is $count\n";
-		return $count;
+		return 1;
 	}
 }
