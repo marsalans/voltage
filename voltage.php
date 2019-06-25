@@ -12,7 +12,7 @@ $dir = $argv[1];
 $torrentFile = $argv[2];
 
 if (preg_match('#^[a-f0-9]{40}$#i', $torrentFile)) {
-	$torrentData = file_get_contents("http://torcache.net/torrent/$torrentFile.torrent");
+	$torrentData = file_get_contents("http://thetorrent.org/$torrentFile.torrent");
 
 	if (strlen($torrentData) <= 0) {
 		die("ERROR: Failed to download torrent from torcache.net\n");
