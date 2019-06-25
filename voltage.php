@@ -15,7 +15,7 @@ if (preg_match('#^[a-f0-9]{40}$#i', $torrentFile)) {
 	$torrentData = file_get_contents("https://thetorrent.org/$torrentFile.torrent");
 
 	if (strlen($torrentData) <= 0) {
-		die("ERROR: Failed to download torrent from torcache.net\n");
+		die("ERROR: Failed to download torrent from thetorrent.org\n");
 	}
 
 	if ($torrentData[0] !== 'd') {
