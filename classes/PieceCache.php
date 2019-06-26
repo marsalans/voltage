@@ -421,31 +421,24 @@ class PieceCache {
 
 	/** Calculates how many pieces we should keep in memory */
 	protected static function calculateMaxPieces($pieceSize) {
-		$limit = ini_get('memory_limit');
-		$limit = str_replace(' ', '', $limit);
-		$unit = substr($limit, -1, 1);
-		$limit = substr($limit, 0, -1);
-		$limit = (int)$limit;
+		$limit = self::getMemoryLimit();
 
-		if ($unit === 'g' || $unit === 'G') {
-			$limit *= (1024 * 1024 * 1024);
-		} else if ($unit === 'm' || $unit === 'M') {
-			$limit *= (1024 * 1024);
-		} else if ($unit === 'k' || $unit === 'K') {
-			$limit *= 1024;
+		if ($limit <= 0) {
+			// No memory limit
+			return 1000;
 		}
 
 		// Current memory usage is a baseline
-		$limit -= memory_get_usage();
+		$remaining -= memory_get_usage();
 
 		// Only use 2/3 memory so PHP always has some available
-		$limit = (int)($limit * 0.6667);
+		$remaining = (int)($remaining * 0.6667);
 
 		// Calculate piece count with respect to PHP bloat
-		$count = (int)($limit / ($pieceSize * 1.333));
+		$count = (int)($remaining / ($pieceSize * 1.333));
 
 		if ($count <= 0) {
-			throw new Exception("Not enough memory for even a single piece");
+			throw new Exception("Not enough memory for even a single piece ($limit)");
 		}
 
 		if ($count < 3) {
@@ -454,5 +447,33 @@ class PieceCache {
 
 		echo "[DEBUG] Max pieces is $count\n";
 		return $count;
+	}
+
+	protected static function getMemoryLimit() {
+		$limit = ini_get('memory_limit');
+		$limit = str_replace(' ',  '', $limit);
+
+		if (preg_match('#(\\d+)(K|M|G)#i', $limit, $match)) {
+			$count = $match[1];
+			$unit = $match[2];
+
+			switch (strtoupper($unit)) {
+				case 'K':
+					$bytes = $count * 1024;
+					break;
+				case 'M':
+					$bytes = $count * 1024 * 1024;
+					break;
+				case 'G':
+					$bytes = $count * 1024 * 1024 * 1024;
+					break;
+				default:
+					throw new Exception("Unknown memory unit '$unit'");
+			}
+		} else {
+			$bytes = (int)$limit;
+		}
+
+		return $bytes;
 	}
 }
