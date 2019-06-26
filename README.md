@@ -11,7 +11,7 @@ functions which are typically available in most PHP environments.
  * Simple piece cache system
  * UDP and HTTP tracker support (UDP not available in some hosting)
  * Automatically resumes download
- * Supports download from only an `info_hash` (currently only uses torcache.net)
+ * Supports download from only an `info_hash` (currently only uses thetorrent.org)
 
 ## Usage
 
