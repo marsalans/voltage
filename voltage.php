@@ -5,40 +5,40 @@ require_once __DIR__.'/classes/Torrent.php';
 require_once __DIR__.'/classes/Download.php';
 
 if (count($argv) < 3) {
-	die("USAGE: voltage <dir> <torrent>\n");
+  die("USAGE: voltage <dir> <torrent>\n");
 }
 
 $dir = $argv[1];
 $torrentFile = $argv[2];
 
 if (preg_match('#^[a-f0-9]{40}$#i', $torrentFile)) {
-	$hash = strtoupper($torrentFile);
-	$torrentData = file_get_contents("http://itorrents.org/torrent/$hash.torrent");
+  $hash = strtoupper($torrentFile);
+  $torrentData = file_get_contents("http://itorrents.org/torrent/$hash.torrent");
 
-	if (strlen($torrentData) <= 0) {
-		die("ERROR: Failed to download torrent from itorrents.org\n");
-	}
+  if (strlen($torrentData) <= 0) {
+    die("ERROR: Failed to download torrent from itorrents.org\n");
+  }
 
-	if ($torrentData[0] !== 'd') {
-		$torrentData = gzdecode($torrentData);
-	}
+  if ($torrentData[0] !== 'd') {
+    $torrentData = gzdecode($torrentData);
+  }
 } else {
-	if (!file_exists($torrentFile)) {
-		die("ERROR: Unable to open torrent file '$torrentFile'\n");
-	}
+  if (!file_exists($torrentFile)) {
+    die("ERROR: Unable to open torrent file '$torrentFile'\n");
+  }
 
-	$torrentData = file_get_contents($torrentFile);
+  $torrentData = file_get_contents($torrentFile);
 
-	if (strlen($torrentData) <= 0) {
-		die("ERROR: Failed to read torrent '$torrentFile'\n");
-	}
+  if (strlen($torrentData) <= 0) {
+    die("ERROR: Failed to read torrent '$torrentFile'\n");
+  }
 }
 
 try {
-	$torrent = Torrent::read($torrentData);
+  $torrent = Torrent::read($torrentData);
 } catch (Exception $e) {
-	trigger_error($e);
-	die("ERROR: Failed to parse torrent\n");
+  trigger_error($e);
+  die("ERROR: Failed to parse torrent\n");
 }
 
 echo " Info Hash: {$torrent->getInfoHashHex()}\n";
@@ -48,13 +48,13 @@ echo " Total Size: ".Util::formatSize($torrent->getTotalSize())."\n";
 $download = new Download($torrent, $dir);
 
 $download->on('allocate', function ($finished, $total) {
-	$p = (int)($finished / $total * 100.0);
-	echo "Allocating Files ... ($p%)         \r";
+  $p = (int)($finished / $total * 100.0);
+  echo "Allocating Files ... ($p%)         \r";
 });
 
 $download->on('check', function ($finished, $total) {
-	$p = (int)($finished / $total * 100.0);
-	echo "Checking Files ... ($p%)           \r";
+  $p = (int)($finished / $total * 100.0);
+  echo "Checking Files ... ($p%)           \r";
 });
 
 $download->start();
@@ -66,27 +66,27 @@ $lastTime = time();
 $downloadSpeed = '0K/s';
 
 while (!$download->isComplete()) {
-	$download->tick();
+  $download->tick();
 
-	$p = $download->getProgress();
-	$x = $download->getConnectedPeerCount();
-	$y = $download->getPeerCount();
+  $p = $download->getProgress();
+  $x = $download->getConnectedPeerCount();
+  $y = $download->getPeerCount();
 
-	$now = time();
-	$span = $now - $lastTime;
+  $now = time();
+  $span = $now - $lastTime;
 
-	if ($span > 0) {
-		$lastTime = $now;
-		$total = $download->getDownloaded();
-		$delta = $total - $lastTotal;
-		$lastTotal = $total;
+  if ($span > 0) {
+    $lastTime = $now;
+    $total = $download->getDownloaded();
+    $delta = $total - $lastTotal;
+    $lastTotal = $total;
 
-		$downloadSpeed = Util::formatSize($delta).'/s';
-	}
+    $downloadSpeed = Util::formatSize($delta).'/s';
+  }
 
-	echo "Downloading ... ($p%) ($x/$y peers) ($downloadSpeed)           \r";
+  echo "Downloading ... ($p%) ($x/$y peers) ($downloadSpeed)           \r";
 
-	//sleep(1);
+  //sleep(1);
 }
 
 $download->finish();
