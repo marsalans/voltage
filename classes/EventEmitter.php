@@ -4,12 +4,12 @@ class EventEmitter {
 	protected $listeners;
 
 	public function __construct() {
-		$this->listeners = array();
+		$this->listeners = [];
 	}
 
 	public function on($event, $listener) {
 		if (empty($this->listeners[$event])) {
-			$this->listeners[$event] = array();
+			$this->listeners[$event] = [];
 		}
 
 		$this->listeners[$event][] = $listener;

@@ -12,10 +12,11 @@ $dir = $argv[1];
 $torrentFile = $argv[2];
 
 if (preg_match('#^[a-f0-9]{40}$#i', $torrentFile)) {
-	$torrentData = file_get_contents("https://thetorrent.org/$torrentFile.torrent");
+	$hash = strtoupper($torrentFile);
+	$torrentData = file_get_contents("http://itorrents.org/torrent/$hash.torrent");
 
 	if (strlen($torrentData) <= 0) {
-		die("ERROR: Failed to download torrent from thetorrent.org\n");
+		die("ERROR: Failed to download torrent from itorrents.org\n");
 	}
 
 	if ($torrentData[0] !== 'd') {

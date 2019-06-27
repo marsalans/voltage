@@ -32,14 +32,14 @@ class Torrent {
 			throw new Exception("Unable to read torrent pieces");
 		}
 
-		$this->files = array();
-		$this->fileSizes = array();
-		$this->fileOffsets = array();
-		$this->pieceFiles = array();
+		$this->files = [];
+		$this->fileSizes = [];
+		$this->fileOffsets = [];
+		$this->pieceFiles = [];
 		$pos = 0;
 
 		for ($i=0; $i < count($this->pieces); $i++) {
-			$this->pieceFiles[$i] = array();
+			$this->pieceFiles[$i] = [];
 		}
 
 		if (empty($meta['info']['files'])) {
@@ -76,7 +76,7 @@ class Torrent {
 			throw new Exception("Torrent contains no data");
 		}
 
-		$this->trackers = array();
+		$this->trackers = [];
 
 		foreach ($meta['announce-list'] as $value) {
 			if (is_array($value)) {
@@ -162,7 +162,7 @@ class Torrent {
 			throw new Exception("Torrent data doesn't contain bencoding");
 		}
 
-		$meta = array();
+		$meta = [];
 		$hash = null;
 
 		while ($pos < $len) {
@@ -196,7 +196,7 @@ class Torrent {
 	public static function decodePieceHashes($str) {
 		$len = strlen($str);
 		$count = (int)($len / 20);
-		$list = array();
+		$list = [];
 
 		for ($i=0; $i < $count; $i++) {
 			$list[$i] = substr($str, $i * 20, 20);

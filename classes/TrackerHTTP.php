@@ -63,7 +63,7 @@ class TrackerHTTP extends Tracker {
 	protected function decodePeerList($str) {
 		$len = strlen($str);
 		$peerCount = (int)($len / 6);
-		$list = array();
+		$list = [];
 
 		for ($i=0; $i < $peerCount; $i++) {
 			$chunk = substr($str, $i * 6, 6);

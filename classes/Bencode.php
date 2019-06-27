@@ -24,7 +24,7 @@ class Bencode {
 
 	public static function decodeMap($str, &$pos) {
 		$len = strlen($str);
-		$map = array();
+		$map = [];
 
 		while ($pos < $len) {
 			if ($str[$pos] === 'e') {
@@ -42,7 +42,7 @@ class Bencode {
 
 	public static function decodeList($str, &$pos) {
 		$len = strlen($str);
-		$list = array();
+		$list = [];
 
 		while ($pos < $len) {
 			if ($str[$pos] === 'e') {

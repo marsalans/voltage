@@ -36,10 +36,10 @@ class Download extends EventEmitter {
 		$this->myPeerID = sha1(time().rand(), true);
 		$this->pieceCache = new PieceCache($torrent, $dir);
 		$this->lastFlush = time();
-		$this->peers = array();
-		$this->streams = array();
-		$this->streamLookup = array();
-		$this->trackers = array();
+		$this->peers = [];
+		$this->streams = [];
+		$this->streamLookup = [];
+		$this->trackers = [];
 		$this->udp = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
 
 		if (empty($this->udp)) {

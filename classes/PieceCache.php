@@ -18,9 +18,9 @@ class PieceCache {
 		$this->pieceSize = $torrent->getPieceSize();
 		$this->pieceCount = $torrent->getPieceCount();
 		$this->maxPieces = self::calculateMaxPieces($this->pieceSize);
-		$this->openFiles = array();
-		$this->pieces = array();
-		$this->dirty = array();
+		$this->openFiles = [];
+		$this->pieces = [];
+		$this->dirty = [];
 		$this->pieceSequences = array_fill(0, $this->pieceCount, 0);
 	}
 
@@ -84,9 +84,9 @@ class PieceCache {
 			fclose($file);
 		}
 
-		$this->openFiles = array();
-		$this->pieces = array();
-		$this->dirty = array();
+		$this->openFiles = [];
+		$this->pieces = [];
+		$this->dirty = [];
 	}
 
 	/** Check if a piece index is within bounds */
@@ -114,7 +114,7 @@ class PieceCache {
 
 		$totalSize = $this->torrent->getTotalSize();
 		$allocatedBytes = 0;
-		$allocatedPieces = array();
+		$allocatedPieces = [];
 
 		foreach ($this->torrent->getFiles() as $file) {
 			$size = $this->torrent->getFileSize($file);
@@ -183,11 +183,11 @@ class PieceCache {
 	/** Check existing piece data on disk. Optionally provide an array of
 	  * pieces to skip (since they are known to be incomplete) */
 	public function check($skip=null, $emitter=null) {
-		$this->checked = array();
+		$this->checked = [];
 		$pieceCount = $this->torrent->getPieceCount();
 
 		if (empty($skip)) {
-			$skip = array();
+			$skip = [];
 		}
 
 		if ($emitter) {
